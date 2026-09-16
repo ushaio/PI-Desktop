@@ -126,6 +126,9 @@ export const ko = {
     error: "업데이트를 확인할 수 없습니다: {{message}}",
     dismiss: "닫기",
     devDisabled: "개발 빌드에서는 업데이트가 비활성화됩니다.",
+    autoUpdate: "자동 업데이트 확인",
+    autoUpdateDesc:
+      "백그라운드에서 GitHub Releases를 주기적으로 확인합니다. 수동 확인은 계속 사용할 수 있습니다.",
   },
   nav: {
     "pinnedSessions": "고정됨",

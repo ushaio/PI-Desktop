@@ -603,6 +603,16 @@ const updater = new AppUpdaterController({
 });
 
 /**
+ * Apply the persisted `autoUpdate` setting to the updater's background
+ * schedule (D433 / ADR 0267). Absent or true keeps the historical
+ * always-on polling; false stops it. Called from the settings write path
+ * and, equivalently, guarded at boot before `startAutoCheck`.
+ */
+const applyAutoUpdateSetting = (settings?: { autoUpdate?: unknown } | null) => {
+  updater.setAutoChecksEnabled(settings?.autoUpdate !== false);
+};
+
+/**
  * Vendor-account logins. Holds the pi-ai credential plumbing so tokens stay in
  * this process; the renderer sees progress events and the sidecar sees only
  * resolved request auth.
@@ -1276,6 +1286,7 @@ function registerIpc() {
     currentNetworkProxy,
     applyApplicationMenuSettings,
     applyDeveloperMode,
+    applyAutoUpdateSetting,
     resolveEffectiveCommandShell,
     modelsDevCatalog,
     vendorOAuth,

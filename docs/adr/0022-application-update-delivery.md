@@ -1,6 +1,7 @@
 # ADR 0022: Application Update Delivery
 
-- Status: Accepted (amended by D364 / ADR 0197)
+- Status: Accepted (amended by D364 / ADR 0197; automatic checks are now
+  user-gated by D433 / ADR 0267)
 - Date: 2026-07-26
 - Deciders: PI-Desktop core
 - Related: D120, D126, D364, D010, ADR 0021, ADR 0197

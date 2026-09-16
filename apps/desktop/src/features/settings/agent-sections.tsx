@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import type { AgentInstructionFile } from "@pi-desktop/shared";
+import type { AgentInstructionFile, AppSettings } from "@pi-desktop/shared";
 import { useAppStore } from "../../stores/app-store";
 import { api } from "../../lib/api";
 import type { ImportCandidate, ModelConfigImportCandidate } from "../../lib/api";
@@ -75,6 +75,42 @@ export function AgentInstructionsSection() {
         </div>
       </SettingsCard>
     </div>
+  );
+}
+
+/**
+ * Automatic background update checks (D433 / ADR 0267). Off stops only the
+ * scheduled GitHub polling; manual checks from the application menu and the
+ * Updates row below keep working. Hidden in development builds, where the
+ * updater is disabled outright.
+ */
+export function AutoUpdateRow({
+  autoUpdate,
+  saveSettings,
+}: {
+  autoUpdate?: boolean;
+  saveSettings: (patch: Partial<AppSettings>) => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const update = useUpdateState();
+  if (!update || update.mode === "disabled") return null;
+  const enabled = autoUpdate !== false;
+  return (
+    <SettingsRow
+      title={t("updates.autoUpdate")}
+      description={t("updates.autoUpdateDesc")}
+    >
+      <button
+        type="button"
+        className={cx("settings-toggle", enabled && "on")}
+        role="switch"
+        aria-checked={enabled}
+        aria-label={t("updates.autoUpdate")}
+        onClick={() => void saveSettings({ autoUpdate: !enabled })}
+      >
+        <span className="settings-toggle-thumb" />
+      </button>
+    </SettingsRow>
   );
 }
 

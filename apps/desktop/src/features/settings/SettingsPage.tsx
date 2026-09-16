@@ -50,6 +50,7 @@ import {
 } from "./primitives";
 import {
   AgentInstructionsSection,
+  AutoUpdateRow,
   ImportSection,
   UpdatesRow,
 } from "./agent-sections";
@@ -477,6 +478,12 @@ export function SettingsPage() {
                     {t("settings.openFeedback")}
                   </Button>
                 </SettingsRow>
+                {settings && (
+                  <AutoUpdateRow
+                    autoUpdate={settings.autoUpdate}
+                    saveSettings={saveSettings}
+                  />
+                )}
                 <UpdatesRow currentVersion={version?.version} />
               </SettingsCard>
 

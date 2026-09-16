@@ -4212,3 +4212,11 @@ the retained upstream work-panel lifecycle. See
 - 现在没有可见工作区时会话根也能解析，所以临时对话按会话各自继续工作，而不是所有会话一起失败；这种状态下的面板调用仍然失败关闭。于是 `workspace` 根的 `NOT_FOUND` 更窄：既没有解析出调用会话的项目，也没有可见工作区。
 - 权限、realpath 包含、拒绝名单、声明范围与运行时同意这四类闸门都没有改动，插件 API 表面也未变化：`pi.workspace.get` 仍然以可见工作区及其项目组作答。
 - 见 ADR 0266、`07-plugins/03-plugin-api.md` §3、`07-plugins/13-plugin-permissions-matrix.md` §6 与 E2E-PLUGIN-fs-root-follows-the-calling-session。
+
+## 2026-09-16 —— 用户可配置的自动更新检查（D433）
+
+- ADR 0022 为每个打包安装提供了无条件的后台更新计划（启动 15 秒后首查，此后每 6 小时一次）。计量或受控网络下的用户没有办法在保留手动检查通道的同时停掉轮询。
+- `AppSettings.autoUpdate?: boolean` 通过既有的宿主持久化设置路径保存：缺省或 `true` 保持历史上的常开计划，`false` 只停止计划中的后台检查。
+- 闸门由 Electron Main 持有：`AppUpdaterController.setAutoChecksEnabled` 在关闭时清理待触发的定时器、重新开启时按既有的延迟且有超时上限的计划重启；`startAutoCheck` 在禁用状态下拒绝排程。设置写入路径经 `applyAutoUpdateSetting` 应用开关；启动时在排程前读取持久化值，读取失败则保持历史上的常开行为。
+- 应用菜单与「设置 → 关于」中的手动检查不受影响，交付模式不变，已下载的更新在安装或正常退出前始终可执行。渲染层在「设置 → 关于」的 Updates 行上方暴露一个开关行，开发构建中隐藏；文案随全部八个语言发布。
+- 不涉及协议、存储 schema、权限或新增 IPC：偏好项复用既有的 `settings.get`/`settings.set` 表面。见 ADR 0267 与 E2E-UPD-auto-update-toggle-stops-only-the-background-schedule。

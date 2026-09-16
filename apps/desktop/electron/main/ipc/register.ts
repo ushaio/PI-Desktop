@@ -81,6 +81,7 @@ export function registerIpcHandlers(dependencies: RegisterIpcDependencies) {
     currentNetworkProxy,
     applyApplicationMenuSettings,
     applyDeveloperMode,
+    applyAutoUpdateSetting,
     resolveEffectiveCommandShell,
     modelsDevCatalog,
     vendorOAuth,
@@ -217,6 +218,7 @@ export function registerIpcHandlers(dependencies: RegisterIpcDependencies) {
     currentNetworkProxy,
     applyApplicationMenuSettings,
     applyDeveloperMode,
+    applyAutoUpdateSetting,
     resolveEffectiveCommandShell,
   });
   registerProviderIpc({

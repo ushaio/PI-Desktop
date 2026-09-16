@@ -124,6 +124,9 @@ export const en = {
     error: "Couldn't check for updates: {{message}}",
     dismiss: "Dismiss",
     devDisabled: "Updates are disabled in development builds.",
+    autoUpdate: "Automatic update checks",
+    autoUpdateDesc:
+      "Check GitHub Releases in the background. You can still check manually.",
   },
   nav: {
     "pinnedSessions": "Pinned",

@@ -5443,3 +5443,27 @@ that was sitting at the bottom — including after the turn had finished.
 - See ADR 0266, `07-plugins/03-plugin-api.md` §3,
   `07-plugins/13-plugin-permissions-matrix.md` §6, and
   E2E-PLUGIN-fs-root-follows-the-calling-session.
+
+## 2026-09-16 — User-configurable automatic update checks (D433)
+
+- ADR 0022 gave every packaged install an unconditional background update
+  schedule (initial check 15s after boot, 6h interval). Users on metered or
+  controlled networks had no way to stop the polling while keeping the manual
+  check lane.
+- `AppSettings.autoUpdate?: boolean` persists through the existing host-owned
+  settings path: absent or `true` keeps the historical always-on schedule,
+  `false` stops only the scheduled background checks.
+- Electron Main owns the gate: `AppUpdaterController.setAutoChecksEnabled`
+  disposes pending timers when disabled and restarts the delayed,
+  time-bounded schedule when re-enabled, and `startAutoCheck` refuses to
+  schedule while disabled. The settings write path applies the toggle via
+  `applyAutoUpdateSetting`; boot reads the persisted value before scheduling,
+  and a failed read keeps the historical always-on behavior.
+- Manual checks from the application menu and Settings → About are
+  unaffected, delivery modes are unchanged, and a downloaded update stays
+  actionable until install or normal shutdown. The renderer exposes one
+  switch row in Settings → About above the Updates row, hidden in development
+  builds; labels ship in all eight locales.
+- No protocol, storage-schema, permission, or new-IPC change: the preference
+  rides the existing `settings.get`/`settings.set` surface. See ADR 0267 and
+  E2E-UPD-auto-update-toggle-stops-only-the-background-schedule.

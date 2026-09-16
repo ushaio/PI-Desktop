@@ -126,6 +126,9 @@ export const tr = {
     error: "Güncellemeler denetlenemedi: {{message}}",
     dismiss: "Kapat",
     devDisabled: "Geliştirme derlemelerinde güncellemeler kapalıdır.",
+    autoUpdate: "Otomatik güncelleme denetimi",
+    autoUpdateDesc:
+      "GitHub Releases arka planda düzenli denetlenir. Yine de elle denetleyebilirsiniz.",
   },
   nav: {
     "pinnedSessions": "Sabitlenmiş",
