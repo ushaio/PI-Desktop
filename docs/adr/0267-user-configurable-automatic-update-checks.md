@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-16
 - Deciders: PI-Desktop core
-- Related: D433, ADR 0022, ADR 0197
+- Related: D434, ADR 0022, ADR 0197
 
 ## Context
 

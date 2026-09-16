@@ -156,7 +156,7 @@ Outer frame that positions Topbar, Sidebar, MainChat, and WorkPanel. Owns resize
   Settings -> Info. The Info tab carries one "Automatic update checks"
   switch row above the Updates row (hidden in development builds): toggling
   it persists `autoUpdate` and gates only the scheduled background checks;
-  manual checks from the menu and the Updates row keep working (D433 /
+  manual checks from the menu and the Updates row keep working (D434 /
   ADR 0267).
 - When Settings -> Info -> Developer mode is enabled, the macOS View menu
   additionally exposes the native developer-tools role. All platforms expose

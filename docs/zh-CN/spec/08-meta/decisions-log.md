@@ -4213,7 +4213,7 @@ the retained upstream work-panel lifecycle. See
 - 权限、realpath 包含、拒绝名单、声明范围与运行时同意这四类闸门都没有改动，插件 API 表面也未变化：`pi.workspace.get` 仍然以可见工作区及其项目组作答。
 - 见 ADR 0266、`07-plugins/03-plugin-api.md` §3、`07-plugins/13-plugin-permissions-matrix.md` §6 与 E2E-PLUGIN-fs-root-follows-the-calling-session。
 
-## 2026-09-16 —— 用户可配置的自动更新检查（D433）
+## 2026-09-16 —— 用户可配置的自动更新检查（D434）
 
 - ADR 0022 为每个打包安装提供了无条件的后台更新计划（启动 15 秒后首查，此后每 6 小时一次）。计量或受控网络下的用户没有办法在保留手动检查通道的同时停掉轮询。
 - `AppSettings.autoUpdate?: boolean` 通过既有的宿主持久化设置路径保存：缺省或 `true` 保持历史上的常开计划，`false` 只停止计划中的后台检查。

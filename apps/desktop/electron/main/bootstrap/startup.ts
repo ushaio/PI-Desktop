@@ -207,7 +207,7 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
     }
     const host = getHost();
     // The automatic update schedule follows the persisted `autoUpdate`
-    // setting (D433 / ADR 0267). A failed read keeps the historical
+    // setting (D434 / ADR 0267). A failed read keeps the historical
     // always-on behavior, like every other setting restored here.
     let autoUpdateEnabled = true;
     if (host) {

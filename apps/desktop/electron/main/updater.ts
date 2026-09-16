@@ -76,7 +76,7 @@ export class AppUpdaterController {
   private state: UpdateState;
   private manualRequested = false;
   /**
-   * The persisted `autoUpdate` setting (D433 / ADR 0267). Absent or true
+   * The persisted `autoUpdate` setting (D434 / ADR 0267). Absent or true
    * keeps the historical always-on schedule; false only stops the
    * background checks — manual checks and a downloaded update are
    * unaffected.

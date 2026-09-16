@@ -604,7 +604,7 @@ const updater = new AppUpdaterController({
 
 /**
  * Apply the persisted `autoUpdate` setting to the updater's background
- * schedule (D433 / ADR 0267). Absent or true keeps the historical
+ * schedule (D434 / ADR 0267). Absent or true keeps the historical
  * always-on polling; false stops it. Called from the settings write path
  * and, equivalently, guarded at boot before `startAutoCheck`.
  */

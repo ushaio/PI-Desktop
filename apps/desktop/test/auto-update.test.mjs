@@ -94,7 +94,7 @@ test("the autoUpdate setting gates only the scheduled background checks", () => 
   assert.match(
     typesSource,
     /autoUpdate\?: boolean/,
-    "AppSettings carries the autoUpdate toggle (D433 / ADR 0267)",
+    "AppSettings carries the autoUpdate toggle (D434 / ADR 0267)",
   );
   assert.match(
     updaterSource,

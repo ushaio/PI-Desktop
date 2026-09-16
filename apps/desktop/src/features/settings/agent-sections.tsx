@@ -79,7 +79,7 @@ export function AgentInstructionsSection() {
 }
 
 /**
- * Automatic background update checks (D433 / ADR 0267). Off stops only the
+ * Automatic background update checks (D434 / ADR 0267). Off stops only the
  * scheduled GitHub polling; manual checks from the application menu and the
  * Updates row below keep working. Hidden in development builds, where the
  * updater is disabled outright.

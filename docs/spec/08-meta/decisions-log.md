@@ -5444,7 +5444,7 @@ that was sitting at the bottom — including after the turn had finished.
   `07-plugins/13-plugin-permissions-matrix.md` §6, and
   E2E-PLUGIN-fs-root-follows-the-calling-session.
 
-## 2026-09-16 — User-configurable automatic update checks (D433)
+## 2026-09-16 — User-configurable automatic update checks (D434)
 
 - ADR 0022 gave every packaged install an unconditional background update
   schedule (initial check 15s after boot, 6h interval). Users on metered or
