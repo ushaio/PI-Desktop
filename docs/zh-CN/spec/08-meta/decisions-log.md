@@ -4373,3 +4373,10 @@ that amendment are retired by ADR 0268; the upstream work-panel lifecycle stays.
   D439 重绑）与 Git 检出决策（ADR 0273），后者本日志已标明要改到 D440。本条不
   代为改写他人决策正文。
 - 仅渲染层：无协议、存储、宿主、权限或迁移改动，也没有新增默认值。磁盘上的文件夹仍永远不被触碰。见 `04-ux/09-interaction-patterns.md`、D421、D431、`06-delivery/04-e2e-test-plan.md` 的 E2E-PROJECT-delete-removes-project-and-owned-sessions，以及 `apps/desktop/test/two-step-delete.test.mjs`。
+
+## 2026-09-16 —— 菜单根层直接承载推理滑块（#417，D433）
+
+- Composer 的推理等级此前只能在一个子菜单里的竖向单选列表中切换。Issue #417 希望参考 Codex 桌面版做成滑动条，同时保留原有的「点击值标签进入下拉列表」交互。
+- 合并后的「模型 × 推理」菜单根层现在直接展示一个原生 range 输入，每个已启用等级一个刻度，并配有可点击的刻度标签，位置就在「推理等级」条目正下方。拖动滑块或点击刻度都会通过同一条 `configureActiveSession` 路径立即提交等级，并停留在菜单原处，因此临时调整不必再往子菜单里跑一趟。「推理等级」条目本身仍然打开经典单选列表，保留其单选语义、末尾勾选、上/下/Enter/左键契约与返回根层的行为。
+- 滑块在获得焦点时自行掌管方向键/Home/End/Enter，因此这些按键用于调整等级而不再驱动菜单导航，Escape 仍然关闭菜单。一次拖动可能每穿过一个刻度就提交一次，因此提交串接在一条 promise 链上；同时用一个本地拖动前导值，避免受控输入在 store 确认回写之前被弹回。当绑定只启用了一个等级时，滑块整体隐藏。
+- 等级值仍是未翻译的规范字符串，七级阶梯、提供方过滤与钳制规则均未改动；仅渲染层：无协议、存储、宿主、权限或迁移改动。见 `04-ux/08-component-spec.md`、`04-ux/07-ui-design-system.md` 与 E2E-050。
