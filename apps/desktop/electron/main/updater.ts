@@ -75,6 +75,13 @@ export class AppUpdaterController {
   private readonly getLocale: () => string | null | undefined;
   private state: UpdateState;
   private manualRequested = false;
+  /**
+   * The persisted `autoUpdate` setting (D434 / ADR 0267). Absent or true
+   * keeps the historical always-on schedule; false only stops the
+   * background checks — manual checks and a downloaded update are
+   * unaffected.
+   */
+  private autoChecksEnabled = true;
   private initialTimer: NodeJS.Timeout | null = null;
   private intervalTimer: NodeJS.Timeout | null = null;
   private listenersAttached = false;
@@ -300,12 +307,32 @@ export class AppUpdaterController {
   }
 
   /**
+   * Apply the persisted `autoUpdate` setting to the background schedule.
+   * Disposing on disable clears any pending timers; re-enabling restarts
+   * the delayed-and-time-bounded schedule exactly like boot. Development
+   * builds never schedule anything either way.
+   */
+  setAutoChecksEnabled(enabled: boolean) {
+    if (this.state.mode === "disabled" || enabled === this.autoChecksEnabled) {
+      return;
+    }
+    this.autoChecksEnabled = enabled;
+    if (enabled) this.startAutoCheck();
+    else this.dispose();
+  }
+
+  /**
    * Schedule background GitHub feed checks. Never await this from boot: the
    * first check is delayed and time-bounded so a hung feed cannot block the
    * first window or pin the updater on `checking`.
    */
   startAutoCheck() {
-    if (this.state.mode === "disabled" || this.initialTimer || this.intervalTimer) {
+    if (
+      !this.autoChecksEnabled ||
+      this.state.mode === "disabled" ||
+      this.initialTimer ||
+      this.intervalTimer
+    ) {
       return;
     }
     this.initialTimer = setTimeout(() => {

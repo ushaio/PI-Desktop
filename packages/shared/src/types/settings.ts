@@ -92,6 +92,13 @@ export type AppSettings = {
    * or work panel compresses without rewriting the preference.
    */
   chatContentMaxWidth?: number;
+  /**
+   * Automatic background update checks (D434 / ADR 0267). Absent or `true`
+   * keeps the scheduled GitHub Releases polling; `false` stops it. Manual
+   * checks from the application menu and Settings → About are unaffected,
+   * and a downloaded update stays actionable until install or shutdown.
+   */
+  autoUpdate?: boolean;
   onboardingDismissed: boolean;
 };
 

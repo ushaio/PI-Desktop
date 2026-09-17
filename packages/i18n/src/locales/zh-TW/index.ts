@@ -106,6 +106,8 @@ export const zhTW = {
     error: "檢查更新失敗：{{message}}",
     dismiss: "忽略",
     devDisabled: "開發版本不支援自動更新。",
+    autoUpdate: "自動檢查更新",
+    autoUpdateDesc: "在背景定期檢查 GitHub Releases。關閉後仍可手動檢查更新。",
   },
   nav: {
     pinnedSessions: "釘選",

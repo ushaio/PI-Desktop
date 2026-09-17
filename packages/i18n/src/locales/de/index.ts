@@ -103,7 +103,9 @@ export const de = {
     "manualHint": "Laden Sie die neue Version von der Release-Seite herunter.",
     "error": "Konnte nicht nach Updates suchen: {{message}}",
     "dismiss": "Verwerfen",
-    "devDisabled": "Updates sind in Entwicklungs-Builds deaktiviert."
+    "devDisabled": "Updates sind in Entwicklungs-Builds deaktiviert.",
+    "autoUpdate": "Automatische Update-Prüfung",
+    "autoUpdateDesc": "GitHub Releases werden im Hintergrund regelmäßig geprüft. Eine manuelle Prüfung bleibt möglich."
   },
   "nav": {
     "pinnedSessions": "Angeheftet",

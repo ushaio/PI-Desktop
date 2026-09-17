@@ -4380,3 +4380,10 @@ that amendment are retired by ADR 0268; the upstream work-panel lifecycle stays.
 - 合并后的「模型 × 推理」菜单根层现在直接展示一个原生 range 输入，每个已启用等级一个刻度，并配有可点击的刻度标签，位置就在「推理等级」条目正下方。拖动滑块或点击刻度都会通过同一条 `configureActiveSession` 路径立即提交等级，并停留在菜单原处，因此临时调整不必再往子菜单里跑一趟。「推理等级」条目本身仍然打开经典单选列表，保留其单选语义、末尾勾选、上/下/Enter/左键契约与返回根层的行为。
 - 滑块在获得焦点时自行掌管方向键/Home/End/Enter，因此这些按键用于调整等级而不再驱动菜单导航，Escape 仍然关闭菜单。一次拖动可能每穿过一个刻度就提交一次，因此提交串接在一条 promise 链上；同时用一个本地拖动前导值，避免受控输入在 store 确认回写之前被弹回。当绑定只启用了一个等级时，滑块整体隐藏。
 - 等级值仍是未翻译的规范字符串，七级阶梯、提供方过滤与钳制规则均未改动；仅渲染层：无协议、存储、宿主、权限或迁移改动。见 `04-ux/08-component-spec.md`、`04-ux/07-ui-design-system.md` 与 E2E-050。
+## 2026-09-16 —— 用户可配置的自动更新检查（D434）
+
+- ADR 0022 为每个打包安装提供了无条件的后台更新计划（启动 15 秒后首查，此后每 6 小时一次）。计量或受控网络下的用户没有办法在保留手动检查通道的同时停掉轮询。
+- `AppSettings.autoUpdate?: boolean` 通过既有的宿主持久化设置路径保存：缺省或 `true` 保持历史上的常开计划，`false` 只停止计划中的后台检查。
+- 闸门由 Electron Main 持有：`AppUpdaterController.setAutoChecksEnabled` 在关闭时清理待触发的定时器、重新开启时按既有的延迟且有超时上限的计划重启；`startAutoCheck` 在禁用状态下拒绝排程。设置写入路径经 `applyAutoUpdateSetting` 应用开关；启动时在排程前读取持久化值，读取失败则保持历史上的常开行为。
+- 应用菜单与「设置 → 关于」中的手动检查不受影响，交付模式不变，已下载的更新在安装或正常退出前始终可执行。渲染层在「设置 → 关于」的 Updates 行上方暴露一个开关行，开发构建中隐藏；文案随全部八个语言发布。
+- 不涉及协议、存储 schema、权限或新增 IPC：偏好项复用既有的 `settings.get`/`settings.set` 表面。见 ADR 0267 与 E2E-UPD-auto-update-toggle-stops-only-the-background-schedule。

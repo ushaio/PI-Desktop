@@ -106,6 +106,8 @@ export const zhCN = {
     error: "检查更新失败：{{message}}",
     dismiss: "忽略",
     devDisabled: "开发版本不支持自动更新。",
+    autoUpdate: "自动检查更新",
+    autoUpdateDesc: "在后台定期检查 GitHub Releases。关闭后仍可手动检查更新。",
   },
   nav: {
     pinnedSessions: "置顶",

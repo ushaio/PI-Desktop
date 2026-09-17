@@ -90,6 +90,50 @@ test("main process registers update handlers and the auto-check lifecycle", () =
   assert.match(mainSource, /updater\.dispose\(\)/);
 });
 
+test("the autoUpdate setting gates only the scheduled background checks", () => {
+  assert.match(
+    typesSource,
+    /autoUpdate\?: boolean/,
+    "AppSettings carries the autoUpdate toggle (D434 / ADR 0267)",
+  );
+  assert.match(
+    updaterSource,
+    /setAutoChecksEnabled\(enabled: boolean\)/,
+    "Main applies the persisted setting through the updater controller",
+  );
+  assert.match(
+    updaterSource,
+    /!this\.autoChecksEnabled \|\|/,
+    "startAutoCheck must respect the persisted toggle",
+  );
+  assert.match(
+    updaterSource,
+    /if \(enabled\) this\.startAutoCheck\(\);\s*else this\.dispose\(\);/,
+    "disabling clears pending timers; re-enabling restarts the schedule",
+  );
+  assert.match(
+    mainSource,
+    /applyAutoUpdateSetting/,
+    "the settings write path applies the toggle in Main",
+  );
+  assert.match(
+    mainSource,
+    /autoUpdateEnabled = stored\?\.autoUpdate !== false/,
+    "boot reads the persisted toggle; a failed read stays always-on",
+  );
+  assert.match(mainSource, /if \(autoUpdateEnabled\) updater\.startAutoCheck\(\)/);
+  assert.match(
+    settingsSource,
+    /updates\.autoUpdate/,
+    "Settings → About exposes the toggle as a switch row",
+  );
+  assert.match(settingsSource, /role="switch"/);
+  for (const source of [enSource, zhSource]) {
+    assert.match(source, /autoUpdate:/);
+    assert.match(source, /autoUpdateDesc:/);
+  }
+});
+
 test("updater gates delivery mode by platform and delivery policy", () => {
   // macOS stays manual-delivery even for notarized artifacts; dev builds are
   // disabled outright.

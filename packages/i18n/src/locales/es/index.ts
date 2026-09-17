@@ -103,7 +103,9 @@ export const es = {
     "manualHint": "Descargue la nueva versión desde la página de lanzamientos.",
     "error": "No se pudieron buscar actualizaciones: {{message}}",
     "dismiss": "Descartar",
-    "devDisabled": "Las actualizaciones están deshabilitadas en las compilaciones de desarrollo."
+    "devDisabled": "Las actualizaciones están deshabilitadas en las compilaciones de desarrollo.",
+    "autoUpdate": "Comprobación automática de actualizaciones",
+    "autoUpdateDesc": "GitHub Releases se comprueba en segundo plano. La comprobación manual sigue disponible."
   },
   "nav": {
     "pinnedSessions": "Fijadas",

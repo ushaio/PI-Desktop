@@ -206,6 +206,10 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
       });
     }
     const host = getHost();
+    // The automatic update schedule follows the persisted `autoUpdate`
+    // setting (D434 / ADR 0267). A failed read keeps the historical
+    // always-on behavior, like every other setting restored here.
+    let autoUpdateEnabled = true;
     if (host) {
       try {
         const stored = (await host.call("settings.get")) as {
@@ -213,7 +217,9 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
           theme?: unknown;
           keybindings?: unknown;
           developerMode?: unknown;
+          autoUpdate?: unknown;
         } | null;
+        autoUpdateEnabled = stored?.autoUpdate !== false;
         applyApplicationMenuSettings(stored);
         applyDeveloperMode(stored);
         await applyNetworkProxyFromAppSettings(stored);
@@ -254,7 +260,7 @@ export function registerApplicationStartup(deps: StartupDependencies): void {
     // GitHub discovery is delayed and time-bounded. Never start it before the
     // first window exists: a hung feed used to sit in "checking" for ~60s and
     // compete with boot for the net stack.
-    updater.startAutoCheck();
+    if (autoUpdateEnabled) updater.startAutoCheck();
     // createWindow awaits the initial load (loadFile resolves on
     // did-finish-load), so the page is up; give React a beat to mount its
     // event subscriptions before pushing the boot outcome.

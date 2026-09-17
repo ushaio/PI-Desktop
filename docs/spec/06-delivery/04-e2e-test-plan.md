@@ -12675,3 +12675,26 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   marked); `packages/shared/src/model-catalog.test.ts` covers the four source rules;
   `crates/host-core/src/providers/catalog.rs` covers the config round trip, the
   unmarked record, and the dropped unknown marker. The end-to-end settings journey
+#### E2E-UPD-auto-update-toggle-stops-only-the-background-schedule
+
+- **Preconditions**: A packaged install with a working GitHub feed; Settings →
+  About is reachable.
+- **Steps**: 1) Launch the app and confirm Settings → About shows the
+  "Automatic update checks" switch, defaulting to on. 2) Turn it off and
+  restart the app. 3) Observe no scheduled check runs (updater stays `idle`).
+  4) Run "Check for updates" from the menu and from Settings → About. 5) Turn
+  the switch back on and restart.
+- **Expected**: The persisted `autoUpdate` setting gates only the scheduled
+  background checks: with it off, boot never calls `startAutoCheck`, no
+  interval timer exists, and manual checks from the menu and Settings still
+  work with their usual status surfacing. With it on, the historical delayed
+  and time-bounded schedule resumes. A read failure at boot keeps the
+  historical always-on behavior. A downloaded update stays actionable until
+  install or normal shutdown regardless of the toggle (ADR 0022/0267).
+- **Specs linked**: ADR 0022, ADR 0267, `04-ux/08-component-spec.md`
+- **Acceptance**: Quality
+- **Milestone**: M6+
+- **Status**: Partially automated (`apps/desktop/test/auto-update.test.mjs`
+  covers the source contract: shared setting, updater gate, boot guard,
+  settings write path, and the Settings switch row). The packaged restart
+  journey remains Draft (run only when this surface changes)
