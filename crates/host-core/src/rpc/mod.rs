@@ -927,7 +927,8 @@ fn resolve_plan_workspace_if_available(
     Ok(resolve_persisted_project_workspace(state, session_id)?.map(PathBuf::from))
 }
 
-async fn emit_notification(tx: &mpsc::UnboundedSender<String>, method: &str, params: Value) {
+/// Push one notification line to the caller's stream.
+fn send_notification(tx: &mpsc::UnboundedSender<String>, method: &str, params: Value) {
     let note = JsonRpcNotification {
         jsonrpc: "2.0",
         method: method.to_string(),
@@ -935,6 +936,71 @@ async fn emit_notification(tx: &mpsc::UnboundedSender<String>, method: &str, par
     };
     if let Ok(raw) = serde_json::to_string(&note) {
         let _ = tx.send(format!("{raw}\n"));
+    }
+}
+
+async fn emit_notification(tx: &mpsc::UnboundedSender<String>, method: &str, params: Value) {
+    send_notification(tx, method, params);
+}
+
+/// Reports install progress to the renderer, and reads the cancel flag.
+///
+/// Throttled on purpose: an install reports every chunk of bytes it sees, and
+/// an interface needs a few of those per second rather than thousands. A phase
+/// change and the terminal report always go through, so a dialog never misses
+/// the transition it is displaying.
+struct RpcInstallObserver {
+    tx: mpsc::UnboundedSender<String>,
+    cancel: crate::plugins::CancelToken,
+    last: Option<std::time::Instant>,
+    last_phase: Option<crate::plugins::InstallPhase>,
+}
+
+impl crate::plugins::InstallObserver for RpcInstallObserver {
+    fn progress(&mut self, event: crate::plugins::InstallProgress) {
+        const MIN_INTERVAL: std::time::Duration = std::time::Duration::from_millis(200);
+        let phase_changed = self.last_phase != Some(event.phase);
+        let terminal = event.error.is_some();
+        let due = self
+            .last
+            .map(|at| at.elapsed() >= MIN_INTERVAL)
+            .unwrap_or(true);
+        if !phase_changed && !terminal && !due {
+            return;
+        }
+        self.last = Some(std::time::Instant::now());
+        self.last_phase = Some(event.phase);
+        let tried: Vec<Value> = event
+            .tried
+            .iter()
+            .map(|mirror| {
+                json!({
+                    "source": mirror.source,
+                    "url": mirror.url,
+                    "error": mirror.error,
+                })
+            })
+            .collect();
+        send_notification(
+            &self.tx,
+            "plugin.installProgress",
+            json!({
+                "pluginId": event.plugin_id,
+                "version": event.version,
+                "phase": event.phase.as_str(),
+                "source": event.source,
+                "attempt": event.attempt,
+                "attempts": event.attempts,
+                "receivedBytes": event.received_bytes,
+                "totalBytes": event.total_bytes,
+                "tried": tried,
+                "error": event.error,
+            }),
+        );
+    }
+
+    fn cancelled(&self) -> bool {
+        self.cancel.is_cancelled()
     }
 }
 
@@ -1066,6 +1132,22 @@ fn plugin_err(err: impl ToString) -> JsonRpcError {
         rpc_err(1013, msg, "PLUGIN_PERMISSION_DENIED")
     } else if msg.contains("PLUGIN_NOT_FOUND") {
         rpc_err(1003, msg, "NOT_FOUND")
+    } else if msg.contains("PLUGIN_CANCELLED") {
+        // The user's own action rather than a failure: the surface closes the
+        // dialog quietly instead of reporting an error.
+        rpc_err(1019, msg, "PLUGIN_CANCELLED")
+    } else if msg.contains("PLUGIN_MARKET_NOT_PUBLISHED") {
+        // The platform has the version and is not offering it yet: a state to
+        // report, not a bug to sweep into INTERNAL.
+        rpc_err(1020, msg, "PLUGIN_MARKET_NOT_PUBLISHED")
+    } else if msg.contains("PLUGIN_MARKET_ARCHIVED") {
+        rpc_err(1021, msg, "PLUGIN_MARKET_ARCHIVED")
+    } else if msg.contains("PLUGIN_MARKET_NOT_FOUND") {
+        rpc_err(1022, msg, "PLUGIN_MARKET_NOT_FOUND")
+    } else if msg.contains("PLUGIN_MARKET_RATE_LIMITED") {
+        rpc_err(1023, msg, "PLUGIN_MARKET_RATE_LIMITED")
+    } else if msg.contains("PLUGIN_MARKET_NO_SOURCE") {
+        rpc_err(1024, msg, "PLUGIN_MARKET_NO_SOURCE")
     } else if msg.contains("PLUGIN_NETWORK") {
         rpc_err(1014, msg, "PLUGIN_NETWORK")
     } else {
@@ -1472,16 +1554,26 @@ async fn handle_request(
             let path = crate::db::canonical_project_path(path)
                 .ok_or_else(|| rpc_err(1002, "path required", "INVALID_PARAMS"))?;
             let st = state.lock().await;
-            if st
+            // A path that belongs to a multi-folder project group must stay put:
+            // deleting one root would orphan the rest of the group, so callers
+            // remove the folder from the group first. A single-folder stored
+            // group is just a wrapper around one project, so removing that
+            // project also removes the now-empty group record.
+            if let Some(group) = st
                 .db
-                .path_is_in_stored_project_group(&path)
+                .stored_project_group_for_path(&path)
                 .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?
             {
-                return Err(rpc_err(
-                    1002,
-                    "project belongs to a multi-folder project group; remove the folder from the group first",
-                    "INVALID_PARAMS",
-                ));
+                if group.roots.len() > 1 {
+                    return Err(rpc_err(
+                        1002,
+                        "project belongs to a multi-folder project group; remove the folder from the group first",
+                        "INVALID_PARAMS",
+                    ));
+                }
+                st.db
+                    .delete_project_group_record(&group.id)
+                    .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
             }
             let session_ids = st
                 .db
@@ -1654,11 +1746,12 @@ async fn handle_request(
             st.db
                 .set_setting("app", &settings)
                 .map_err(|e| rpc_err(1000, e.to_string(), "INTERNAL"))?;
-            // Re-pin the marketplace source in memory. Fetching here would hold
+            // Re-pin the marketplace channel in memory. Fetching here would hold
             // the state lock behind a remote timeout, so the renderer triggers
-            // `market.refresh` after switching sources.
-            let market_source = crate::plugins::market_source_from_settings(Some(&settings));
-            st.plugins.set_market_source(market_source);
+            // `market.refresh` after switching channels.
+            let (channel, custom_url) =
+                crate::plugins::market_channel_from_settings(Some(&settings));
+            st.plugins.set_market_channel(channel, custom_url);
             // A concrete app language pins the plugin display locale here, so a
             // shell that only writes settings still gets localized plugin rows.
             // `auto` is resolved by the shell and pushed through
@@ -4348,12 +4441,47 @@ async fn handle_request(
                 .get("grantedPermissions")
                 .cloned()
                 .and_then(|v| serde_json::from_value::<Vec<String>>(v).ok());
+            // An install outlives one request from the interface's point of
+            // view: it resolves where the package is, downloads it from one
+            // mirror after another, verifies it and registers it. Every one of
+            // those steps is worth showing, which is what the observer does,
+            // and the token is what the cancel channel flips.
+            let cancel = crate::plugins::CancelToken::default();
+            // Armed outside AppState: cancelInstall must flip this flag while
+            // install still holds the state lock for the download.
+            crate::plugins::progress::arm_active_cancel(&cancel);
+            let mut observer = RpcInstallObserver {
+                tx: tx.clone(),
+                cancel: cancel.clone(),
+                last: None,
+                last_phase: None,
+            };
             let mut st = state.lock().await;
-            let result = st
-                .plugins
-                .install_from_market(id, version, enable, auto_update, granted)
-                .map_err(plugin_err)?;
+            st.plugins.set_install_cancel(Some(cancel));
+            let outcome = st.plugins.install_from_market_observed(
+                id,
+                version,
+                enable,
+                auto_update,
+                granted,
+                &mut observer,
+            );
+            // Whatever happened, nothing is cancellable any more: a token left
+            // in place would answer the next cancel for an install that is
+            // already over.
+            st.plugins.set_install_cancel(None);
+            let result = outcome.map_err(plugin_err)?;
             Ok(json!({ "result": result }))
+        }
+        "market.cancelInstall" => {
+            let id = params
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| rpc_err(1002, "id required", "INVALID_PARAMS"))?;
+            // Do not take AppState: the install holds that lock while bytes
+            // arrive, and waiting on it would make cancel a no-op.
+            let cancelled = crate::plugins::progress::cancel_active_install();
+            Ok(json!({ "cancelled": cancelled, "id": id }))
         }
         "market.checkUpdates" => {
             let refresh_remote = params
@@ -5010,6 +5138,51 @@ mod tests {
             .unwrap()
             .iter()
             .any(|project| project["path"].as_str() == Some(canonical.as_str())));
+    }
+
+    /// A single-folder stored project group is just a wrapper around one
+    /// project. Removing that project must succeed and delete the now-empty
+    /// group record instead of locking the project in place (issue #572).
+    #[tokio::test]
+    async fn projects_remove_deletes_single_folder_stored_group() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let solo_dir = data_dir.path().join("solo");
+        fs::create_dir_all(&solo_dir).unwrap();
+        let mut app_state = AppState::open(data_dir.path()).unwrap();
+        app_state.handshook = true;
+        let solo_path = solo_dir.to_string_lossy().to_string();
+        let group = app_state
+            .db
+            .create_project_group("Solo", std::slice::from_ref(&solo_path))
+            .unwrap();
+        assert!(!group.legacy);
+        assert_eq!(group.roots.len(), 1);
+        let state = Arc::new(Mutex::new(app_state));
+
+        let result = handle_request(
+            state.clone(),
+            "projects.remove",
+            json!({ "path": solo_path }),
+            mpsc::unbounded_channel().0,
+        )
+        .await
+        .expect("a single-folder stored group must be removable");
+        assert_eq!(result["removed"], json!(true));
+
+        let canonical =
+            crate::db::canonical_project_path(&solo_path).expect("canonical project path");
+        let st = state.lock().await;
+        assert!(st
+            .db
+            .stored_project_group_for_path(&canonical)
+            .unwrap()
+            .is_none());
+        assert!(st
+            .db
+            .list_projects()
+            .unwrap()
+            .iter()
+            .all(|project| project.path != canonical));
     }
 
     /// A running turn owns its session's tools, working directory, and

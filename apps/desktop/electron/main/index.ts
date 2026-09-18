@@ -50,7 +50,6 @@ import {
   shouldShowNativeNotification,
 } from "./notification-policy";
 import { PersistenceOutbox } from "./persistence-outbox";
-import { InflightCheckpointer } from "./inflight-checkpoint";
 import { AgentSidecar } from "./agent-sidecar";
 import { Logger, ignoreBrokenStdio } from "./logger";
 import { installMainProcessErrorHandlers } from "./main-process-errors";
@@ -89,14 +88,12 @@ import {
   type PreparedPromptAttachment,
 } from "./prompt-attachments";
 import {
+  InflightCheckpointer,
   executionFromResponse,
   executionListFromResponse,
   planExecutionFromUnknown,
-} from "./plan-execution";
-import {
-  readWindowState,
-  writeWindowState,
-} from "./window-preferences";
+} from "@pi-desktop/host-runtime";
+import { readWindowState, writeWindowState } from "./window-preferences";
 import { createPlanUiProbe } from "./plan-ui-probe";
 import type { McpControlController, McpControlServer } from "./mcp-control";
 import type { AgentHostBridge } from "./agent-host-bridge";
@@ -685,6 +682,7 @@ const pluginServices = createPluginServices({
 const {
   plugins,
   userMcp,
+  mcpOAuth,
   pluginScopes,
   sessionProjects,
   emitBrowserState,
@@ -694,6 +692,7 @@ const {
   browserHost,
   browserPane,
   announceTurnEnded,
+  speech,
 } = pluginServices;
 
 const providerCatalogRuntime = createProviderCatalogRuntime({
@@ -1264,6 +1263,7 @@ function registerIpc() {
     getHost: () => host,
     getSidecar: () => sidecar,
     getAgentHostBridge: () => agentHostBridge,
+    getBackendRouter: () => startupState.backendRouter,
     getNotificationViewingSessionId: () => notificationViewingSessionId,
     setNotificationViewingSessionId: (sessionId: string | null) => {
       notificationViewingSessionId = sessionId;
@@ -1279,6 +1279,7 @@ function registerIpc() {
     persistenceOutbox,
     logger,
     plugins,
+    speech,
     sessionCapabilityContext,
     enrichSession,
     acquireSessionOperation,
@@ -1332,6 +1333,7 @@ function registerIpc() {
     dispatchExecutionForProposal,
     emitAgentEvent,
     userMcp,
+    mcpOAuth,
     refreshUserMcp,
     describeError,
     activeUserSubagentDocuments,
@@ -1378,6 +1380,7 @@ const startupState: StartupState = {
   set agentHostBridge(value) {
     agentHostBridge = value;
   },
+  backendRouter: null,
   get desktopControl() {
     return desktopControl;
   },
@@ -1491,6 +1494,7 @@ registerShutdownHandlers({
   pluginPanels,
   plugins,
   userMcp,
+  mcpOAuth,
   browserPane,
   pluginViews,
   pluginSettingsViews,

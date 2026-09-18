@@ -27,7 +27,7 @@
 关于面板。运行时还将 `build/icon_1024.png` 应用于 Dock。库存
 `node_modules` 下的文件永远不会被修改。 Windows/Linux 不断发展
 正常的 electro-vite 可执行文件。尽管如此，Windows Main 还是注册了
-之前 NSIS 包使用的相同 `com.pi-desktop.app` AppUserModelID
+之前 NSIS 包使用的相同 `net.aiuo.pi-desktop` AppUserModelID
 Electron 准备就绪，防止库存主机身份拥有本机
 通知或任务栏组。 Windows 封装另外引脚
 `PI-Desktop` 可执行文件和“开始”菜单快捷方式名称。启动器设置
@@ -55,7 +55,12 @@ Windows 可执行文件和原生窗口图标中使用 `build/icon.ico`。渲染�
 
 - Electron 应用程序具有强化的运行时 + 权利
   (`build/entitlements.mac.plist`: JIT + 无符号可执行内存 +
-  库验证禁用 — 标准 Electron 设置）。
+  库验证禁用 — 标准 Electron 设置），并在 Info.plist 中通过
+  `apps/desktop/package.json` → `mac.extendInfo` 追加
+  `NSLocalNetworkUsageDescription`，使 macOS 15+ 弹出本地网络授权，同时授予
+  Chromium 主进程与 `ELECTRON_RUN_AS_NODE` 的 agent sidecar；否则主进程的
+  Test Provider 能过，但 sidecar 走局域网请求会以 `EHOSTUNREACH` 失败
+  （issue #573）。
 - `Resources/bin/pi-desktop-host-core` — Rust 主机二进制文件（发布版本）。
 - Windows NSIS 构建包含静态链接 MSVC CRT 的 x64
   `pi-desktop-host-core.exe`，因此全新的 Windows x64 或 Windows 11 ARM64
@@ -214,7 +219,7 @@ DMG 不包含可执行的 command 助手。
 还包含该说明和可执行的 `PI-Desktop-macOS-open.command`。将 `PI-Desktop.app` 移动到
 `/Applications` 或 `~/Applications` 后，ZIP 用户可以双击该助手。它只搜索这两个
 固定位置，在存在时递归删除唯一的 `com.apple.quarantine` 属性，然后打开 PI-Desktop。
-在执行前它会校验 `CFBundleIdentifier=com.pi-desktop.app`。它不会使用 `sudo`，也不
+在执行前它会校验 `CFBundleIdentifier=net.aiuo.pi-desktop`。它不会使用 `sudo`，也不
 接受任意应用路径。标准系统位置的终端备用命令为：
 
 ```sh

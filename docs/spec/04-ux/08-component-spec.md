@@ -54,7 +54,12 @@ Outer frame that positions Topbar, Sidebar, MainChat, and WorkPanel. Owns resize
   collapse and expand use a mounted-then-animated dock transition (entrance
   `sidebar-in`, exit `sidebar-out` keyframes) that mirrors the work-panel dock:
   the aside stays in the tree through the exit keyframe, then unmounts
-  (`is-exiting` flag + `animationend` guard, with a timeout fallback)
+  (`is-exiting` flag + `animationend` guard, with a timeout fallback).
+  Entrance requires an explicit `is-entering` phase from a collapsed-to-expanded
+  change on the presented main shell. Initial mounting and return from Settings
+  restore the full retained layout directly. Entering Settings cancels either
+  pending phase, including during rapid navigation; no hidden shell is kept
+  mounted solely to suppress animation.
 - Sidebar width: the expanded column is fixed at 275px. Collapse/open changes
   only whether the column is present; the historical resize handle is hidden
   and legacy persisted width preferences are ignored.
@@ -144,8 +149,10 @@ Outer frame that positions Topbar, Sidebar, MainChat, and WorkPanel. Owns resize
   (D348). `nativeTheme.themeSource` follows the app theme preference (`system` /
   `light` / `dark` / plugin base) so the material's light or dark plate matches
   the renderer. Vibrancy is re-applied only when that source changes; a missing
-  plugin theme falls back to `system`. Only the `.sidebar` and any rendered `.sidebar-rail` surface
-  are translucent; the renderer adds a thin theme tint
+  plugin theme falls back to `system`. Main and settings navigation share the
+  `.sidebar-surface` material, alongside any rendered `.sidebar-rail`; the
+  settings shell ancestry is transparent but its content pane and titlebar stay
+  opaque. The renderer adds a thin theme tint
   (`--ds-sidebar-glass-tint`, 40% dark / 55% light) plus a top/bottom sheen.
   The dock carries no seam or hairline: the glass meets the opaque main pane
   flush, so the only edge cue is the tint's natural change against the pane.
@@ -313,6 +320,7 @@ combined model × reasoning selection (§11).
 
 - Every control is keyboard-reachable with Tab
 - Composer stop control has `aria-label="Stop generating"`
+- Composer transcribe / speak controls are icon buttons with `aria-label` from `chat.transcribe` / `chat.speak`. They stay disabled until the matching speech role is configured.
 - The topbar does not render a separate running-state indicator; the Composer
   submit control and transcript working feedback remain the running-state cues.
 
@@ -405,8 +413,10 @@ visually distinct from list content.
 | Session in progress | Orange breathing dot; static under reduced motion |
 | Session completed | Green check mark from the latest unread task notification when the row is not selected |
 | Session failed | Red circled alert mark from the latest unread task notification when the row is not selected |
-| Hover session | bg-tertiary background |
-| Active project | Header carries active state; topbar follows that workspace; composer exposes no workspace identity |
+| Hover row | Project headers and all conversation rows share one full-row `--ds-bg-hover` surface, radius and transition; selected conversation fill takes precedence |
+| Current workspace | Project header shows the workspace dot, never a persistent selection fill; topbar follows that workspace; composer exposes no workspace identity |
+| Navigation selection | Only the selected conversation on the chat page uses `--ds-bg-active`, including pinned and standalone rows; folding its group never transfers selection to the header. No conversation or a non-chat page means no selected conversation row |
+| Keyboard focus | The focused control keeps its visible outline; the project title stays transparent and independent action buttons retain their own hover feedback |
 | Collapsed project | Header remains visible; unpinned child conversations are hidden; global pins remain visible |
 | Archived row | Hidden by default; visible in the explicit archived view |
 | No retained project | Compact Open project entry; standalone Sessions rows remain available |
@@ -497,15 +507,18 @@ visually distinct from list content.
   while distinct sections use a 16px gap and shared button/input metrics. One
   Create project title leads into an explicitly labeled filled name field and
   the workspace list with a softly filled Add folder action; the field does not
-  repeat its label as placeholder text. Edit project reuses the same surface,
-  loads the host-owned group, allows the name and non-primary folders to be
-  adjusted, keeps Primary first and non-removable, and rejects removal of a
-  folder that still owns chats. The source selector offers This computer and
-  Git repository as equal peers; a repository URL reuses the clone rules of
-  ADR 0247 and its checkout becomes the primary root of the same group.
-  dialog does not add explanatory copy for durable memory or multi-selection.
-  The surface has no outer stroke, section rules, footer divider, or dashed
-  picker border. The action row stays fixed while the content scrolls; narrow
+  repeat its label as placeholder text and uses the shared field well plus the
+  accent-tinted focus ring, not an outline stroke. Edit project reuses the same
+  surface, loads the host-owned group, allows the name and non-primary folders
+  to be adjusted, keeps Primary first and non-removable, and rejects removal of
+  a folder that still owns chats. The source selector offers This computer and
+  Git repository as equal filled tiles without strokes (D297); the active source
+  uses a deeper tile, not a selected border. A repository URL reuses the clone
+  rules of ADR 0247 and its checkout becomes the primary root of the same group.
+  The dialog does not add explanatory copy for durable memory or multi-selection.
+  The surface has no outer stroke, section rules, footer divider, source-option
+  stroke, field stroke, or dashed picker border. The action row stays fixed
+  while the content scrolls; narrow
   windows retain a single column and reachable actions. Light and dark themes
   preserve readable filled surfaces and visible keyboard focus, and transitions
   respect reduced motion.
@@ -535,7 +548,7 @@ visually distinct from list content.
   Projects, independent of date buckets, project collapse, retained tabs, and
   each project's ten-row history limit. Each pin shows its project display
   name (full path on hover), or Temporary space for a path-less conversation.
-  The section is omitted when empty and scrolls within `min(224px, 30vh)` when
+  The section is omitted when empty and scrolls within `min(233px, 30vh)` when
   needed. Its rows reuse normal selection, status, hover, and overflow actions.
 - Pinning moves the existing row into that section; unpinning returns it to
   normal project or temporary history, subject to existing folding and closed
@@ -777,6 +790,31 @@ reading surface of the workstation.
   so the last message sits ~16px above the box and is never overlapped even as
   the draft grows. `.jump-latest-btn` and `.minimap-rail` anchor to the same
   variable so they stay just above the composer.
+
+### Turn process and thinking display
+
+Each assistant-turn entry has one process disclosure containing reasoning,
+tools and intermediate assistant text in transcript order. Its trailing answer
+streams outside the disclosure. Later activity moves a provisional answer into
+the process without altering the stored message. Assistant errors and trailing
+aborted partial replies stay visible. Compaction and user/system boundaries are
+unchanged.
+
+Completed process areas start collapsed; detailed mode opens the active process.
+Manual choices and search reveals own the disclosure until unmount. Failed tools
+open an unclaimed active process and keep their invocation-level error presentation.
+The header shows elapsed time and the visible process step count. Its thinking
+label applies only while the latest activity is streaming reasoning without answer
+text; streamed answers use the processing label. Delegation
+cards and individual tool details remain available inside the process.
+
+`thinkingDisplayMode` defaults to `detailed`. In `compact`, reasoning text and
+excerpts are absent, active reasoning has a status indicator, and completed
+thinking rows disappear. Tools and intermediate text remain accessible; a
+thinking-only completed process has no empty header. The setting also applies
+to nested thinking rows and updates mounted history. It never removes stored
+reasoning or changes model thinking configuration. See
+[ADR turn-process-and-thinking-display](../../adr/turn-process-and-thinking-display.md).
 
 ### 4.4 States
 
@@ -1170,6 +1208,49 @@ SESSIONS                                      [msg+][↕]
            Session title
 ```
 
+Rows inside a project group are dated. The today bucket draws no header;
+yesterday, the previous 7 days, the previous 14 days, and everything older each
+draw a muted uppercase label above their rows, and only a bucket that holds rows
+draws one:
+
+```text
+[folder] current-project                         [+]
+           YESTERDAY
+           Session title
+           Session title
+```
+
+That label is an ordinary row of the list rhythm — no disclosure, no state, no
+`aria-expanded` — unlike a project header, which is a real collapsible group.
+
+Spacing ladder in the sidebar lists (`space-0.25` / `space-0.5` / `space-2` per
+`04-ux/07-ui-design-system.md` §6.1):
+
+| Relation | Gap |
+|---|---|
+| Row to row, including a date label and the load-more row | 1px |
+| Project group header to its first row | 2px |
+| Last row of an expanded group to the next group | 8px |
+| Collapsed group to the next group | 1px |
+| Section label to its first row | 2px |
+| Sidebar section to sidebar section | 8px |
+
+The 8px tail belongs to the expanded group itself, so the spacing is decided by
+the preceding group alone: an expanded group is followed by 8px whether the next
+group is expanded or collapsed, and a collapsed group is followed by 1px either
+way.
+
+The fold is one motion, not two. A collapsed group is a single grid row that
+animates `1fr` → `0fr` over the 200ms normal duration, so every frame is a real
+fraction of the group's measured height instead of a `max-height` clamp that
+spends most of its curve above the content and then snaps. The rows are clipped
+by an inner box with `min-height: 0`, never faded — opacity stays 1 for the whole
+fold — and the 2px / 7px inset lives on the list inside that clip, so it travels
+with the rows instead of holding the closed row open. Under
+`prefers-reduced-motion: reduce` the fold keeps both endpoints and runs in a
+near-zero duration. A folded group keeps its rows mounted, `aria-hidden`, and
+`inert`, so they leave the tab order as well as the accessibility tree.
+
 ### 6.3 States
 
 | State | Appearance |
@@ -1239,7 +1320,8 @@ SESSIONS                                      [msg+][↕]
   local view controls rather than host queries.
 - Temporary means **not bound to a project**, not ephemeral storage; these
   sessions survive restart.
-- The standalone Sessions body shows at most five compact 28px rows and
+- The standalone Sessions body is a 146px window over five compact 28px rows,
+  their 1px row gaps, and the 2px label inset; it
   scrolls internally when more rows exist. The Projects list uses the remaining
   sidebar height and scrolls independently; neither region scrolls the footer
   or primary navigation. Both list scrollbars use the same global 6px,
@@ -1470,15 +1552,17 @@ Single message render — either user (plaintext) or assistant (markdown streami
 ### 8.3 Layout
 
 - Max content band: 760px default, user-resizable via dual edge handles
-  (D439 / ADR 0274). Assistant, tool, and decision rows follow the band.
+  (D439 / ADR 0277). Assistant, tool, and decision rows follow the band.
   User plates stay `min(82%, 600px)`.
 - The live band is `min(available pane, preferred)`. Collapsing the sidebar
   no longer tightens a 640px ceiling; the outer pane stays fluid and the
   width transition follows the sidebar dock.
-- Dual 12px handles sit on the band edges: invisible at rest, glow on hover
-  or focus, 1px hairline plus glow while dragging. Double-click resets to
-  760px. Arrow keys step the width; Home restores the default; End fills the
-  pane.
+- Dual 12px handles sit on the band edges: invisible at rest; hover/focus
+  reveals a short 2×40px capsule mixed from `--ds-text-primary` (18% dark /
+  12% light). Dragging lengthens it to 56px at a slightly stronger mix.
+  Double-click resets to 760px. Arrow keys step the width; Home restores the
+  default; End fills the pane.
+
 - User: right-aligned, theme-neutral soft plate (`color-mix` on primary ink,
   never a fixed accent tint), borderless, `radius-lg-plus` with a tighter
   bottom-right corner, capped at `min(82%, 600px)` so short prompts read as
@@ -1509,11 +1593,13 @@ Single message render — either user (plaintext) or assistant (markdown streami
    image thumbnail resolves and opens the same way. A chip whose reference
    matches nothing opens nothing and reports itself; the OS default application
    is no longer what this click does.
-  HTTP(S) URLs remain inline text links. Plain clicks follow the persisted
-  Link open destination setting (Work panel browser by default, or the system
-  default browser). Right-clicking a link opens a body-level context menu with
-  Open in default browser, Open in work panel, and Copy link address. Modifier
-  clicks (Ctrl/Cmd/Shift/Alt) continue to open externally. Long URL links wrap
+  HTTP(S) URLs remain inline text links. Plain clicks — including markdown
+  links, autolinked URLs, inline-code URLs, and remote images — follow the
+  persisted Link open destination setting (Work panel browser by default, or
+  the system default browser). Right-clicking a link opens a body-level
+  context menu with Open in default browser, Open in work panel, and Copy
+  link address. Modifier clicks (Ctrl/Cmd/Shift/Alt) continue to open
+  externally. Long URL links wrap
   within the plate and keep logical-start alignment instead of inheriting the
   browser's centered button text.
 - Assistant: transparent surface, left-aligned, markdown rendered at full
@@ -1556,9 +1642,12 @@ Single message render — either user (plaintext) or assistant (markdown streami
   selected assistant response, requires an idle source, and leaves that
   source's transcript, live runtime, and provider cache state untouched (D134).
   Edit belongs to the user turn: it swaps the prompt bubble for a focused
-  composer-plate editor (same `--ds-bg-composer` fill and `--ds-composer-radius`
-  as the bottom composer; no stroke per D297, no shadow). The textarea is
-  unboxed inside that plate; localized Retry and Cancel sit in a 28px footer
+  composer-radius editor filled with `--ds-tile-deep` (the same 8% mix as a
+  user bubble) so it stays distinct from the pane without an outer shadow.
+  Transcript rows paint-contain and the scroller clips overflow, so a
+  composer lift would be cut off at the plate edges (D297: in-flow surfaces
+  use tone, not stroke). Focus paints an inset 2px accent ring. The textarea
+  is unboxed inside that plate; localized Retry and Cancel sit in a 28px footer
   (Escape cancels, Cmd/Ctrl+Enter retries; slash turns seed the typed
   `command` form so retrying re-expands the template). Opening it widens the
   user column to the assistant reading width and hides the action toolbar.
@@ -2403,11 +2492,17 @@ reasoning-level control.
   `.tool-spinner` and localized `Enhancing…` label while running, and remains
   a one-shot draft rewrite action. Inline file-reference chips, including
   pasted image chips, do not disable this action and remain in the draft.
-- MainPane and the chat surface keep a 450px hard minimum so the composer toolbar
-  retains a usable single-row layout. The left and right control groups do not
-  shrink; mode and permission labels stay on one line and ellipsize within their
-  chips, so a sidebar or work-panel resize cannot vertically split, squeeze, or
-  overlap toolbar content.
+- MainPane and the chat surface keep a 450px hard minimum. The composer toolbar
+  remains a single, non-wrapping row as its container narrows: the mode and
+  permission labels stay on one line and ellipsize within their chips, while
+  the combined model × reasoning trigger progressively gives up detail. At
+  560px it hides the reasoning level label, at 480px it tightens the model label
+  cap, and at the 450px floor it becomes a 32px icon-only trigger. The trigger's
+  menu and accessible name retain the complete model/reasoning selection. The
+  context inspector hides its percentage at the floor and the enhancement
+  loading state becomes icon-only, preserving the action hit targets without
+  clipping or overlapping toolbar content. Home and thread-docked composers
+  use the same responsive rules.
 - The combined chip opens one anchored menu above itself. The menu starts with
   only Model and Reasoning level entries, each showing its current value and a
   chevron. Selecting an entry replaces the menu contents in place with a back
@@ -3262,7 +3357,7 @@ compatibility remains owned by pi-ai.
 | Busy row | Test/update/delete actions disabled for that card |
 
 ### 19.4 Interactions
-- Add provider opens a modal dialog that stays inside the overlay (it can shrink below its 1040px preferred width). Focused credential fields keep their 2px accent ring fully visible: the scrolling body reserves that gutter instead of clipping the ring. Cancel/close resets fields and dismisses the dialog
+- Add provider opens a modal dialog on a full-window overlay portaled to `#pi-desktop-overlays` on the document element (it can shrink below its 1040px preferred width). Focused credential fields keep their 2px accent ring fully visible: the scrolling body reserves that gutter instead of clipping the ring. Cancel/close resets fields and dismisses the dialog
 - The model picker searches and toggles multiple models without using a native
   multiple select. Its portaled menu closes on outside press, Escape, scroll,
   and resize; model selection immediately adds or removes its configuration

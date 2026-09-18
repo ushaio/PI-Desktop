@@ -27,7 +27,7 @@ PI-Desktop in the application menu and uses the canonical icon in the native
 About panel. The runtime also applies `build/icon_1024.png` to the Dock. Stock
 files under `node_modules` are never modified. Windows/Linux development keeps
 the normal electron-vite executable. Windows Main nevertheless registers the
-same `com.pi-desktop.app` AppUserModelID used by the NSIS package before
+same `net.aiuo.pi-desktop` AppUserModelID used by the NSIS package before
 Electron readiness, preventing the stock host identity from owning native
 notifications or taskbar groups. The Windows package additionally pins the
 `PI-Desktop` executable and Start menu shortcut names. The launcher sets
@@ -58,7 +58,13 @@ when macOS `iconutil` is available, without overwriting the canonical source.
 
 - Electron app with hardened runtime + entitlements
   (`build/entitlements.mac.plist`: JIT + unsigned-executable-memory +
-  library-validation disable — the standard Electron set).
+  library-validation disable — the standard Electron set), plus the
+  `NSLocalNetworkUsageDescription` string in Info.plist (via
+  `apps/desktop/package.json` → `mac.extendInfo`) so macOS 15+ prompts for
+  Local Network access and grants it to both the Chromium main process and
+  the `ELECTRON_RUN_AS_NODE` agent sidecar — without it, LAN provider
+  requests from the sidecar fail with `EHOSTUNREACH` even though the main
+  process's Test Provider fetch succeeds (issue #573).
 - `Resources/bin/pi-desktop-host-core` — Rust host binary (release build).
 - Windows NSIS builds include an x64 `pi-desktop-host-core.exe` statically
   linked to the MSVC CRT, so a clean Windows x64 or Windows 11 ARM64
@@ -248,7 +254,7 @@ name. The macOS ZIP includes both that note and the executable
 `/Applications` or `~/Applications`, ZIP users can double-click the helper. It
 searches only those two fixed locations, removes only the recursive
 `com.apple.quarantine` attribute when present, and opens PI-Desktop. Before
-doing so it verifies `CFBundleIdentifier=com.pi-desktop.app`. It does not use
+doing so it verifies `CFBundleIdentifier=net.aiuo.pi-desktop`. It does not use
 `sudo` or accept an arbitrary application path. The manual fallback for the
 standard system location is:
 
